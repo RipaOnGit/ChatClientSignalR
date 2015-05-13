@@ -11,9 +11,12 @@ using Microsoft.WindowsAzure.Storage;
 namespace SignalRChat
 {
     //Instructions: https://www.macaw.nl/weblog/2013/8/setting-up-website-deployment-to-windows-azure
+    //http://www.asp.net/signalr/overview/advanced/dependency-injection
     public class ChatHub : Hub
     {
-        private readonly static ConnectionMapping<string> _connections = new ConnectionMapping<string>();
+        //private readonly static ConnectionMapping<string> _connections = new ConnectionMapping<string>();
+
+        private readonly static IConnectionMapping<string> _connections = new ConnectionMapping<string>();
         private IMessageData _dbMessage;
         private IDataBaseManager _dbManager;
 
@@ -56,11 +59,20 @@ namespace SignalRChat
         }
     }
 
+
+    public interface IConnectionMapping<T>
+    {
+        int Count { get; }
+        void Add(T key, string connectionId);
+        IEnumerable<string> GetConnections(T key);
+        List<string> GetAllConnections();
+        void Remove(T key, string connectionId);
+    }
     /// <summary>
     /// Connection book keeping and management module, which maintains user connection mapping.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class ConnectionMapping<T>
+    public class ConnectionMapping<T> : IConnectionMapping<T>
     {
         private readonly Dictionary<T, HashSet<string>> _connections =
             new Dictionary<T, HashSet<string>>();
