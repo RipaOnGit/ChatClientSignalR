@@ -13,39 +13,31 @@ namespace SignalRChat
     //Instructions: https://www.macaw.nl/weblog/2013/8/setting-up-website-deployment-to-windows-azure
     public class ChatHub : Hub
     {
-         private readonly static ConnectionMapping<string> _connections = 
-            new ConnectionMapping<string>();
+        private readonly static ConnectionMapping<string> _connections = new ConnectionMapping<string>();
+        private IMessageData _dbMessage;
+        private IDataBaseManager _dbManager;
 
-        private MessageData dbMessage; 
+        public ChatHub(IDataBaseManager dbmanager)
+        {
+            _dbManager = dbmanager;
+        }
 
         public void Send(string name, string message)
         {
-            // Call the broadcastMessage method to update clients.
+            //Call the broadcastMessage method to update clients.
             Clients.All.broadcastMessage(name, message);
-            dbMessage = new MessageData()
+
+            //Create message for store.
+            _dbMessage = new MessageData()
             {
                 message = message,
                 user = name,
                 PartitionKey = "Messages",
                 RowKey = Guid.NewGuid().ToString()
             };
-            string accountName = "ripasstorage1";
-            string accountKey = "0M78LT+YVu7/omJULHgjTiRvbhQVOoadnI4kpl5ykDESqY1Z/PW5uqEj4pLLX2k1u7k0zQAsFO3PCJduZwcszw==";
-            try
-            {
-                StorageCredentials creds = new StorageCredentials(accountName, accountKey);
-                CloudStorageAccount account = new CloudStorageAccount(creds, useHttps: true);
 
-                CloudTableClient client = account.CreateCloudTableClient();
-
-                CloudTable table = client.GetTableReference("chatMessages");
-                TableOperation tableOperation = TableOperation.Insert(dbMessage);
-                TableResult result = table.Execute(tableOperation);
-            }
-            catch (Exception ex)
-            {
-            }
-
+            //Then record message to table storage.
+            _dbManager.TableInsert(_dbMessage);
         }
 
         public void addUser(string User)
@@ -53,13 +45,6 @@ namespace SignalRChat
             _connections.Add(Context.ConnectionId, User);
             Clients.All.getConnectedUsers(_connections.GetAllConnections());
         }
-
-        //public override Task OnConnected()
-        //{
-        //    _connections.Add(currentUser, Context.ConnectionId);
-
-        //    return base.OnConnected();
-        //}
 
         public override Task OnDisconnected(bool stopCalled)
         {
@@ -69,26 +54,10 @@ namespace SignalRChat
 
             return base.OnDisconnected(stopCalled);
         }
-
-        //public override Task OnReconnected()
-        //{
-        //    if (!_connections.GetConnections("").Contains(Context.ConnectionId))
-        //    {
-        //        _connections.Add(Guid.NewGuid().ToString(), Context.ConnectionId);
-        //    }
-
-        //    return base.OnReconnected();
-        //}
-    }
-
-    internal class MessageData : TableEntity
-    {
-        public string message { get; set; }
-        public string user { get; set; }
     }
 
     /// <summary>
-    /// User Connection realted class
+    /// Connection book keeping and management module, which maintains user connection mapping.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class ConnectionMapping<T>
