@@ -15,6 +15,8 @@ namespace SignalRChat
         public void Configuration(IAppBuilder app)
         {
             // For more information on how to configure your application, visit http://go.microsoft.com/fwlink/?LinkID=316888
+
+            //Lets register custom hub instance builder.
             GlobalHost.DependencyResolver.Register(
             typeof(ChatHub),
             () => new ChatHub(new DataBaseManager()));
